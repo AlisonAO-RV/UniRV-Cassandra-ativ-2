@@ -1,3 +1,5 @@
-art==6.0
-dnspython==2.4.2
-pymongo==4.5.0
+art==6.1
+cassandra-driver==3.28.0
+click==8.1.7
+geomet==0.2.1.post1
+six==1.16.0

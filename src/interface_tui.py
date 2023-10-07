@@ -1,9 +1,11 @@
 import curses
 import art
 import sys
-import redis
 import json
 import uuid
+import time
+from cassandra.cluster import Cluster
+from cassandra import util
 
 # ▶️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 FIELDS = ["Título", "Data", "Descrição"]
@@ -13,7 +15,30 @@ TITLE_SIZE = 30
 DATE_SIZE = 10
 DESCRIPTION_SIZE = 60
 
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+# Criando a conexão
+cluster = Cluster(['127.0.0.1'])
+session = cluster.connect()
+
+# Criando o keyspace (se não existir)
+session.execute("""
+    CREATE KEYSPACE IF NOT EXISTS tasks_manager
+    WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1}
+""")
+
+# Usando o keyspace criado
+session.set_keyspace('tasks_manager')
+
+# Criando a tabela (se não existir)
+session.execute("""
+    CREATE TABLE IF NOT EXISTS tasks (
+        id UUID PRIMARY KEY,
+        title TEXT,
+        date TEXT,
+        description TEXT,
+        done BOOLEAN
+    )
+""")
 
 
 class InterfaceTUI:
@@ -35,10 +60,10 @@ class InterfaceTUI:
         win.erase()
         win.keypad(1)
         win.box()
-        InterfaceTUI.add_window_title(win, "🔸 SISTEMA DE GERENCIAMENTO DE TAREFAS 🔸 ")
+        InterfaceTUI.add_window_title(win, "🔸 --- GERENCIAMENTO DE TAREFAS --- 🔸 ")
 
         # Gerando e centralizando o texto ASCII Art
-        fasoft_art = art.text2art("FASOFT")
+        fasoft_art = art.text2art("FASOFT", font='small')
         fasoft_lines = fasoft_art.split('\n')
         for idx, line in enumerate(fasoft_lines):
             start_x = (win.getmaxyx()[1] - len(line)) // 2
@@ -46,11 +71,11 @@ class InterfaceTUI:
 
         # Continuando com as demais informações
         y_offset = len(fasoft_lines) + 1
-        win.addstr(y_offset, 1, " FACULDADE DE ENGENHARIA DE SOFTWARE")
+        win.addstr(y_offset, 1, " FACULDADE DE ENG. DE SOFTWARE")
         win.addstr(y_offset + 2, 1, " 😇 PROFESSOR: Wilian Garcia de Assunção")
         win.addstr(y_offset + 3, 1, " 🤓 ALUNO: Alison Alain de Oliveira")
-        win.addstr(y_offset + 5, 1, " 🔸 MATÉRIA: BANCO DE DADOS NÃO RELACIONAIS")
-        win.addstr(y_offset + 6, 1, " 🔑 VERSÃO: 0.01")
+        win.addstr(y_offset + 5, 1, " 🔸 MATÉRIA: BD NÃO RELACIONAIS")
+        win.addstr(y_offset + 6, 1, " 🔑 VERSÃO: 0.01 - CASSANDRA")
         win.refresh()
 
     # ▶️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -156,10 +181,16 @@ class InterfaceTUI:
                 elif current_field_idx == len(FIELDS):  # botão 'Salvar'
                     data = dict(zip(FIELDS, field_values))
                     data['Concluído'] = False  # Adicionando o campo 'Concluído' e definindo como False
-                    key = str(uuid.uuid4())
 
-                    # 📎 ▶️ redis_client: O método json.dumps() converte um objeto Python em uma string JSON
-                    redis_client.set(key, json.dumps(data))
+                    # 📎 ▶️ Cassabdra: O método util.uuid_from_time(time.time()) gera um UUID a partir do tempo atual
+                    key = util.uuid_from_time(time.time())
+                    session.execute(
+                        """
+                        INSERT INTO tasks (id, title, date, description, done)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (key, data['Título'], data['Data'], data['Descrição'], False)
+                    )
 
                     InterfaceTUI.draw_details_window(details_win, [" ✅ SUCESSO!"], 0)
                     return True
@@ -176,9 +207,9 @@ class InterfaceTUI:
         win.box()
         InterfaceTUI.add_window_title(win, " 🔸 LISTA DE TAREFAS  🔸 ")
 
-        # 📎 ▶️ redis_client: O método redis_client.keys('*') busca a lista de Chaves do Redis
-        all_keys = redis_client.keys('*')
-        tasks = [(key, json.loads(redis_client.get(key).decode('utf-8'))) for key in all_keys]
+        # 📎 ▶️ Cassandra: O método session.execute() executa uma query no Cassandra
+        rows = session.execute('SELECT id, title, date, description, done FROM tasks')
+        tasks = [(row.id, {'Título': row.title, 'Data': row.date, 'Descrição': row.description, 'Concluído': row.done}) for row in rows]
 
         current_idx = 0
         while True:
@@ -217,8 +248,17 @@ class InterfaceTUI:
                     task_key, task = tasks[current_idx]
                     task["Concluído"] = not task["Concluído"]
 
-                    # 📎 ▶️ redis_client: Altera o Status da Tarefa no Redis
-                    redis_client.set(task_key, json.dumps(task))
+                    # 📎 ▶️ Cassandra: O método session.execute() executa uma query no Cassandra
+                    try:
+                        session.execute(
+                            """
+                            UPDATE tasks SET done = %s WHERE id = %s
+                            """,
+                            (task["Concluído"], task_key)
+                        )
+                    except Exception as e:
+                        print(e)
+                        time.sleep(5)
 
                 else:
                     # Sair da tela de lista
@@ -235,8 +275,8 @@ class InterfaceTUI:
         InterfaceTUI.add_window_title(win, " 🔸 DELETAR TAREFAS  🔸 ")
 
         # 📎 ▶️ redis_client: O método redis_client.keys('*') busca a lista de Chaves do Redis
-        all_keys = redis_client.keys('*')
-        tasks = [(key, json.loads(redis_client.get(key).decode('utf-8'))) for key in all_keys]
+        rows = session.execute('SELECT id, title, date, description, done FROM tasks')
+        tasks = [(row.id, {'Título': row.title, 'Data': row.date, 'Descrição': row.description, 'Concluído': row.done}) for row in rows]
 
         current_idx = 0
 
@@ -294,9 +334,14 @@ class InterfaceTUI:
                             choice_idx += 1
                         elif confirm_key == 10:  # Enter
                             if choice_idx == 0:  # SIM
-
-                                # 📎 ▶️ redis_client: Apaga Tarefa no Radis
-                                redis_client.delete(tasks[current_idx][0])
+                                task_key, task = tasks[current_idx]
+                                # 📎 ▶️ Cassandra: O método session.execute() executa uma query no Cassandra
+                                session.execute(
+                                    """
+                                    DELETE FROM tasks WHERE id = %s
+                                    """,
+                                    (task_key,)
+                                )
 
                                 tasks.pop(current_idx)
                                 if current_idx >= len(tasks):

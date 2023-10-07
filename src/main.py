@@ -1,13 +1,7 @@
 import curses
-import uuid
 import sys
 from interface_tui import InterfaceTUI
 import art
-
-
-# ▶️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# # 📎 ▶️ Comentário: Gera um UUID versão 4 (completamente aleatório)
-# unique_id = uuid.uuid4()
 
 
 def handle_option_Sair(details_win):
@@ -20,6 +14,10 @@ def main(screen):
     curses.cbreak()
     curses.echo()
     curses.curs_set(0)  # Ocultar cursor
+    curses.start_color()
+    curses.init_color(8, 100, 100, 100)
+    # curses.init_pair(1, 8, 8)
+    curses.init_pair(1, curses.COLOR_WHITE, 8)
 
     # ▶️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -31,8 +29,15 @@ def main(screen):
     info_win = curses.newwin(info_win_height, int(w * 0.3), 0, 0)
     menu_win = curses.newwin(menu_win_height, int(w * 0.3), info_win_height, 0)
     details_win = curses.newwin(h, int(w * 0.7 + 1), 0, int(w * 0.3))
+    info_win.bkgd(' ', curses.color_pair(1))
+    menu_win.bkgd(' ', curses.color_pair(1))
+    details_win.bkgd(' ', curses.color_pair(1))
+    screen.attron(curses.color_pair(1))
     screen.erase()
     screen.refresh()
+    info_win.refresh()
+    menu_win.refresh()
+    details_win.refresh()
 
     # ▶️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

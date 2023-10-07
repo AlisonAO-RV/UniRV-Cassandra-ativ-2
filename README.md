@@ -54,3 +54,8 @@ Adicionar Tarefa: Permita que o usuário adicione uma tarefa fornecendo o títul
 Listar Tarefas: Exiba todas as tarefas armazenadas, mostrando seus IDs e títulos.
 Visualiar Descrição da Tarefa: Após listar as tarefas pelo título, mostre uma opção que permita visualizar a descrição da tarefa.
 Remover Tarefa: Permita que o usuário remova uma tarefa pelo ID.
+
+## Print do projeto
+
+![print](img/tela_01.png)
+![print](img/tela_02.png)
