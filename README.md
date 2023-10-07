@@ -1,14 +1,16 @@
 # UniRV-Cassandra-ativ-2
 
-# Aluno: Alison Alain de Oliveira
+## Aluno: Alison Alain de Oliveira
 
 # Como executar o projeto
 
 ## Pré-requisitos
 
-# BANCO DE DADOS CASSANDRA
+- BANCO DE DADOS CASSANDRA
+- DOCKER ou CASSANDRA LOCAL
+- PYTHON 3.11
 
-## Insta;ação do Cassandra no Docker
+## Instalação do Cassandra no Docker
 
 docker run --name cassandra -p 9042:9042 -d cassandra:latest
 
