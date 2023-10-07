@@ -57,5 +57,5 @@ Remover Tarefa: Permita que o usuário remova uma tarefa pelo ID.
 
 ## Print do projeto
 
-![print](img/tela_01.png)
-![print](img/tela_02.png)
+![print](/images/tela_01.png)
+![print](/images/tela_02.png)
